@@ -1,0 +1,73 @@
+name: 🔄 Sync from Upstream (merge-Xours, Keep Git History)
+
+on:
+  schedule:
+    - cron: '0 20 * * *'  # Run daily at 20:00 UTC
+  workflow_dispatch:      # Allow manual trigger
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: 🛠️ Checkout repository (with full history)
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0  # Must be full depth to merge history
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@github.com"
+
+      - name: 🔗 Add upstream remote
+        run: |
+          git remote add upstream https://github.com/cluntop/tvbox.git || echo "Upstream already exists"
+          git fetch upstream
+
+      - name: 🔍 Identify upstream default branch
+        id: upstream-branch
+        run: |
+          # Try common branch names; fallback to 'main'
+          BRANCH=$(git ls-remote --heads upstream | grep -E 'main|master|trunk' | head -n1 | awk '{print $2}' | sed 's|refs/heads/||')
+          [[ -z "$BRANCH" ]] && BRANCH="main"
+          echo "upstream_branch=$BRANCH" >> $GITHUB_OUTPUT
+          echo "Detected upstream default branch: $BRANCH"
+
+      - name: 🧬 Merge upstream/main (auto conflict resolution)
+        run: |
+          echo "Merging upstream/main into local branch..."
+
+          set +e
+          git merge -X ours --no-ff --allow-unrelated-histories upstream/main
+          MERGE_STATUS=$?
+          set -e
+
+          if [ $MERGE_STATUS -ne 0 ]; then
+            echo "⚠️ Merge conflict detected. Auto resolving..."
+
+            # Always preserve local versions
+            for f in index.html tcp.sh; do
+              if git ls-files --error-unmatch "$f" >/dev/null 2>&1 || [ -f "$f" ]; then
+                git checkout --ours "$f" || true
+                git add "$f" || true
+                echo "Preserved local file: $f"
+              fi
+            done
+
+            git add -A
+
+            # Only commit if needed
+            if ! git diff --cached --quiet; then
+              git commit -m "chore: auto-resolve merge conflicts using ours"
+            else
+              echo "Nothing to commit after resolving."
+            fi
+          fi
+
+      - name: 📤 Push updated branch
+        run: |
+          git push
