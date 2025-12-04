@@ -1,0 +1,83 @@
+name: Update Deploy to Pages
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+    inputs:
+      deploy_branch:
+        description: "部署的分支"
+        required: true
+        default: "main"
+        type: string
+
+env:
+  DEPLOY_REF: ${{ github.event.inputs.deploy_branch || github.ref }}
+  UPLOAD_PATH: "."
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: 🚀 Build & Deploy
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    timeout-minutes: 10
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.DEPLOY_REF }}
+          fetch-depth: 1
+          lfs: true
+          path: ${{ env.UPLOAD_PATH }}
+
+      - name: 📊 Verify & Generate Summary
+        run: |
+          FILE_COUNT=$(find ${{ env.UPLOAD_PATH }} -type f | wc -l)
+          SIZE=$(du -sh ${{ env.UPLOAD_PATH }} | cut -f1)
+          
+          echo "### 📦 部署准备就绪" >> $GITHUB_STEP_SUMMARY
+          echo "- **分支**: \`${{ env.DEPLOY_REF }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **文件数量**: $FILE_COUNT" >> $GITHUB_STEP_SUMMARY
+          echo "- **总大小**: $SIZE" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "$FILE_COUNT" -eq 0 ]; then
+             echo "::error::❌ 目录下没有文件，终止部署！"
+             exit 1
+          fi
+
+      - name: ⚙️ Setup GitHub Pages
+        uses: actions/configure-pages@v5
+        with:
+          cname: "clun.top" # 您的自定义域名
+
+      - name: 📤 Upload Artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: ${{ env.UPLOAD_PATH }}
+          retention-days: 1
+
+      - name: 🚀 Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+        with:
+          retry-on-error: true
+          retry-delay: 5s 
+
+      - name: 🎉 Deployment Success Info
+        if: success()
+        run: |
+          echo "::notice title=部署成功::✅ 您的站点已上线！"
+          echo "### 🚀 部署成功!" >> $GITHUB_STEP_SUMMARY
+          echo "访问地址: [${{ steps.deployment.outputs.page_url }}](${{ steps.deployment.outputs.page_url }})" >> $GITHUB_STEP_SUMMARY
