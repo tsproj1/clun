@@ -43,7 +43,7 @@ jobs:
 
     steps:
       - name: Checkout Target Repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ env.TARGET_BRANCH }}
           persist-credentials: true
@@ -51,7 +51,7 @@ jobs:
 
       - name: Sync Upstream Changes
         id: sync
-        uses: aormsby/Fork-Sync-With-Upstream-action@v3.4.1
+        uses: aormsby/Fork-Sync-With-Upstream-action@v3.4.3
         with:
           upstream_sync_repo: ${{ env.UPSTREAM_REPO }}
           upstream_sync_branch: ${{ env.UPSTREAM_BRANCH }}
