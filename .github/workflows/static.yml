@@ -35,7 +35,7 @@ jobs:
 
     steps:
       - name: 📥 Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ env.DEPLOY_REF }}
           fetch-depth: 1
@@ -58,12 +58,12 @@ jobs:
           fi
 
       - name: ⚙️ Setup GitHub Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
         with:
           cname: "clun.top" # 您的自定义域名
 
       - name: 📤 Upload Artifact
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         with:
           path: ${{ env.UPLOAD_PATH }}
           retention-days: 1
